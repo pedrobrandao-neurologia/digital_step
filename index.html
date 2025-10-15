@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>O Passo Digital: Análise de Marcha</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Bibliotecas para exportação em PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .btn-primary {
+            background-color: #4f46e5;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #4338ca;
+        }
+        .btn-secondary {
+            background-color: #6b7280;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background-color: #4b5563;
+        }
+        .btn-danger {
+            background-color: #dc2626;
+            color: white;
+        }
+        .btn-danger:hover {
+            background-color: #b91c1c;
+        }
+        .btn:disabled {
+            background-color: #d1d5db;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-4xl">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-indigo-700">O Passo Digital</h1>
+            <p class="text-lg text-gray-600 mt-2">Análise de Marcha Baseada em Sensores Inerciais do Smartphone</p>
+        </header>
+
+        <!-- Seção de Instruções -->
+        <div class="card">
+            <h2 class="text-2xl font-semibold mb-4 text-indigo-600">Instruções de Uso</h2>
+            <ol class="list-decimal list-inside space-y-2 text-gray-700">
+                <li>
+                    <strong>Permissão:</strong> O navegador solicitará permissão para acessar os sensores de movimento. Por favor, aceite para continuar.
+                </li>
+                <li>
+                    <strong>Posicionamento:</strong> Para melhores resultados, coloque o celular em um bolso frontal justo da calça ou use um cinto/suporte para fixá-lo firmemente na região da cintura ou parte inferior das costas.
+                </li>
+                <li>
+                    <strong>Calibração:</strong> Antes de iniciar, coloque o celular sobre uma superfície plana e estável (mesa) e pressione <strong>"Calibrar Sensores"</strong>. Aguarde a mensagem de confirmação.
+                </li>
+                <li>
+                    <strong>Dados do Usuário:</strong> Insira um ID para a pessoa testada e sua altura em metros (ex: 1.75). Estes dados são cruciais.
+                </li>
+                 <li>
+                    <strong>Coleta:</strong> Pressione <strong>"Iniciar Coleta"</strong> e caminhe em linha reta por pelo menos 20-30 segundos em um ritmo normal.
+                </li>
+                <li>
+                    <strong>Análise e Exportação:</strong> Pressione <strong>"Parar e Analisar"</strong>. Os resultados serão exibidos e as opções de exportação ficarão disponíveis.
+                </li>
+            </ol>
+            <div class="mt-4 p-3 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md">
+                <p><strong>Aviso:</strong> Esta é uma ferramenta de demonstração tecnológica baseada em pesquisa e não deve ser usada para diagnóstico clínico.</p>
+            </div>
+        </div>
+
+        <!-- Seção de Controle -->
+        <div class="card">
+            <h2 class="text-2xl font-semibold mb-4 text-indigo-600">Painel de Controle</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                <div>
+                    <label for="personId" class="block text-sm font-medium text-gray-700 mb-1">ID da Pessoa Testada</label>
+                    <input type="text" id="personId" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ex: Paciente01">
+                </div>
+                <div>
+                    <label for="height" class="block text-sm font-medium text-gray-700 mb-1">Altura da Pessoa (metros)</label>
+                    <input type="number" id="height" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ex: 1.75" step="0.01">
+                </div>
+            </div>
+            <div class="flex flex-col md:flex-row gap-4 justify-around mt-6">
+                <button id="calibrateBtn" class="btn btn-secondary">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd" /></svg>
+                    Calibrar Sensores
+                </button>
+                <button id="startBtn" class="btn btn-primary" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg>
+                    Iniciar Coleta
+                </button>
+                <button id="stopBtn" class="btn btn-danger" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd" /></svg>
+                    Parar e Analisar
+                </button>
+            </div>
+            <div id="status" class="mt-4 text-center font-medium text-gray-600 h-6"></div>
+        </div>
+        
+        <!-- Seção de Resultados -->
+        <div id="resultsCard" class="card hidden">
+            <h2 class="text-2xl font-semibold mb-4 text-indigo-600">Resultados da Análise de Marcha</h2>
+            <div id="resultsContainer" class="overflow-x-auto">
+                <p id="noResults" class="text-gray-500">A análise será exibida aqui após a coleta dos dados.</p>
+                <table id="resultsTable" class="min-w-full divide-y divide-gray-200 hidden">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Parâmetro</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor Médio</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor Típico (Adulto Saudável)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsBody" class="bg-white divide-y divide-gray-200">
+                        <!-- Linhas da tabela serão inseridas aqui via JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Seção de Exportação -->
+        <div id="exportCard" class="card hidden">
+             <h2 class="text-2xl font-semibold mb-4 text-indigo-600">Exportar Dados</h2>
+             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                 <button id="exportRawCsvBtn" class="btn btn-secondary">Brutos (CSV)</button>
+                 <button id="exportResultsCsvBtn" class="btn btn-primary">Resultados (CSV)</button>
+                 <button id="exportResultsJsonBtn" class="btn btn-primary">Resultados (JSON)</button>
+                 <button id="exportResultsPdfBtn" class="btn btn-primary">Resultados (PDF)</button>
+             </div>
+        </div>
+    </div>
+
+    <script>
+        const { jsPDF } = window.jspdf;
+
+        // --- Referências de Elementos ---
+        const calibrateBtn = document.getElementById('calibrateBtn');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const heightInput = document.getElementById('height');
+        const personIdInput = document.getElementById('personId');
+        const statusDiv = document.getElementById('status');
+        
+        const resultsCard = document.getElementById('resultsCard');
+        const resultsTable = document.getElementById('resultsTable');
+        const noResultsP = document.getElementById('noResults');
+        const resultsBody = document.getElementById('resultsBody');
+
+        const exportCard = document.getElementById('exportCard');
+        const exportRawCsvBtn = document.getElementById('exportRawCsvBtn');
+        const exportResultsCsvBtn = document.getElementById('exportResultsCsvBtn');
+        const exportResultsJsonBtn = document.getElementById('exportResultsJsonBtn');
+        const exportResultsPdfBtn = document.getElementById('exportResultsPdfBtn');
+
+        // --- Variáveis de Estado ---
+        let accelerometer, gyroscope;
+        let sensorData = [];
+        let calculatedResults = {};
+        let isCollecting = false;
+        let accelBias = { x: 0, y: 0, z: 0 };
+        let gyroBias = { x: 0, y: 0, z: 0 };
+        
+        // --- Parâmetros de Análise ---
+        const SAMPLING_FREQUENCY = 50; // Hz
+        const MIN_PEAK_HEIGHT = 1.5; // m/s^2, limiar para detectar um pico de passada
+        const MIN_STEP_DURATION = 0.3; // segundos, distância mínima entre passadas
+
+        // --- LÓGICA DE CONTROLE E SENSORES ---
+        calibrateBtn.addEventListener('click', () => {
+            statusDiv.textContent = 'Calibrando... Mantenha o dispositivo parado em superfície plana.';
+            calibrateBtn.disabled = true;
+            startBtn.disabled = true;
+            
+            const calibrationData = { accel: [], gyro: [] };
+
+            Promise.all([
+                navigator.permissions.query({ name: 'accelerometer' }),
+                navigator.permissions.query({ name: 'gyroscope' })
+            ]).then((results) => {
+                if (results.every(result => result.state === 'granted' || result.state === 'prompt')) {
+                    try {
+                        const tempAccel = new Accelerometer({ frequency: SAMPLING_FREQUENCY });
+                        const tempGyro = new Gyroscope({ frequency: SAMPLING_FREQUENCY });
+
+                        const accelHandler = () => calibrationData.accel.push({ x: tempAccel.x, y: tempAccel.y, z: tempAccel.z });
+                        const gyroHandler = () => calibrationData.gyro.push({ x: tempGyro.x, y: tempGyro.y, z: tempGyro.z });
+
+                        tempAccel.addEventListener('reading', accelHandler);
+                        tempGyro.addEventListener('reading', gyroHandler);
+                        tempAccel.start(); tempGyro.start();
+                        
+                        setTimeout(() => {
+                            tempAccel.stop(); tempGyro.stop();
+                            tempAccel.removeEventListener('reading', accelHandler);
+                            tempGyro.removeEventListener('reading', gyroHandler);
+
+                            accelBias = calibrationData.accel.reduce((acc, data) => ({
+                                x: acc.x + data.x / calibrationData.accel.length,
+                                y: acc.y + data.y / calibrationData.accel.length,
+                                z: acc.z + data.z / calibrationData.accel.length,
+                            }), { x: 0, y: 0, z: 0 });
+                            accelBias.z -= 9.81; // Z do acelerômetro em repouso deve ser a gravidade
+
+                            gyroBias = calibrationData.gyro.reduce((acc, data) => ({
+                                x: acc.x + data.x / calibrationData.gyro.length,
+                                y: acc.y + data.y / calibrationData.gyro.length,
+                                z: acc.z + data.z / calibrationData.gyro.length,
+                            }), { x: 0, y: 0, z: 0 });
+
+                            statusDiv.textContent = `Calibração concluída!`;
+                            calibrateBtn.disabled = false;
+                            startBtn.disabled = false;
+                        }, 2000);
+
+                    } catch(error) {
+                        statusDiv.textContent = 'Erro ao acessar sensores: ' + error.message;
+                        calibrateBtn.disabled = false;
+                    }
+                } else {
+                    statusDiv.textContent = 'Permissão para sensores negada.';
+                }
+            });
+        });
+
+        startBtn.addEventListener('click', () => {
+            if (!heightInput.value || parseFloat(heightInput.value) <= 0) {
+                statusDiv.textContent = 'Por favor, insira uma altura válida.';
+                return;
+            }
+            if (!personIdInput.value) {
+                statusDiv.textContent = 'Por favor, insira um ID para a pessoa.';
+                return;
+            }
+
+            isCollecting = true;
+            sensorData = [];
+            startBtn.disabled = true; stopBtn.disabled = false;
+            calibrateBtn.disabled = true; heightInput.disabled = true; personIdInput.disabled = true;
+            
+            statusDiv.textContent = 'Coletando dados... Caminhe agora.';
+            resultsCard.classList.add('hidden');
+            exportCard.classList.add('hidden');
+            
+            try {
+                accelerometer = new Accelerometer({ frequency: SAMPLING_FREQUENCY });
+                gyroscope = new Gyroscope({ frequency: SAMPLING_FREQUENCY });
+
+                const dataHandler = () => {
+                    if (!isCollecting) return;
+                    sensorData.push({
+                        timestamp: performance.now(),
+                        ax: accelerometer.x - accelBias.x, ay: accelerometer.y - accelBias.y, az: accelerometer.z - accelBias.z,
+                        gx: gyroscope.x - gyroBias.x, gy: gyroscope.y - gyroBias.y, gz: gyroscope.z - gyroBias.z,
+                    });
+                };
+
+                accelerometer.addEventListener('reading', dataHandler);
+                gyroscope.addEventListener('reading', dataHandler);
+                accelerometer.start(); gyroscope.start();
+            } catch (error) {
+                statusDiv.textContent = 'Erro ao iniciar sensores: ' + error.message;
+                stopCollection();
+            }
+        });
+        
+        stopBtn.addEventListener('click', () => {
+            stopCollection();
+            statusDiv.textContent = 'Coleta parada. Analisando dados...';
+            analyzeGaitData();
+        });
+        
+        function stopCollection() {
+            isCollecting = false;
+            if (accelerometer) accelerometer.stop();
+            if (gyroscope) gyroscope.stop();
+            
+            startBtn.disabled = false; stopBtn.disabled = true;
+            calibrateBtn.disabled = false; heightInput.disabled = false; personIdInput.disabled = false;
+        }
+
+        // --- LÓGICA DE ANÁLISE DE DADOS ---
+        function analyzeGaitData() {
+            if (sensorData.length < SAMPLING_FREQUENCY * 5) {
+                statusDiv.textContent = 'Dados insuficientes para análise. Caminhe por mais tempo.';
+                return;
+            }
+            const alpha = 0.2; // Fator de suavização
+            const filteredAz = [sensorData[0].az];
+            for (let i = 1; i < sensorData.length; i++) {
+                filteredAz.push(alpha * sensorData[i].az + (1 - alpha) * filteredAz[i - 1]);
+            }
+            const hsIndices = findValleys(filteredAz, MIN_PEAK_HEIGHT, Math.round(MIN_STEP_DURATION * SAMPLING_FREQUENCY));
+
+            if (hsIndices.length < 3) {
+                statusDiv.textContent = 'Não foi possível detectar passadas suficientes. Tente novamente.';
+                return;
+            }
+            const strideTimes = [];
+            for (let i = 0; i < hsIndices.length - 1; i++) {
+                strideTimes.push((sensorData[hsIndices[i+1]].timestamp - sensorData[hsIndices[i]].timestamp) / 1000);
+            }
+            const avgStrideTime = strideTimes.reduce((a, b) => a + b, 0) / strideTimes.length;
+            const avgCadence = 120 / avgStrideTime;
+            const avgStanceTime = avgStrideTime * 0.60;
+            const avgSwingTime = avgStrideTime * 0.40;
+            const avgDoubleSupportTime = avgStanceTime - avgSwingTime;
+            const height = parseFloat(heightInput.value);
+            const cadenceHz = avgCadence / 60.0;
+            const meanAz = filteredAz.reduce((a, b) => a + b, 0) / filteredAz.length;
+            const varianceAz = filteredAz.reduce((acc, val) => acc + Math.pow(val - meanAz, 2), 0) / filteredAz.length;
+            const A = 0.5, B = 0.05, C = 0.01, D = -0.25;
+            const avgStepLength = A * height + B * cadenceHz + C * varianceAz + D;
+            const avgStrideLength = avgStepLength * 2;
+            const avgGaitSpeed = avgStrideLength / avgStrideTime;
+
+            calculatedResults = {
+                "Duração da Coleta (s)": ((sensorData[sensorData.length - 1].timestamp - sensorData[0].timestamp) / 1000).toFixed(2),
+                "Número de Passadas (Ciclos) Detectadas": strideTimes.length,
+                "Tempo do Ciclo (s)": { value: avgStrideTime.toFixed(2), typical: "1.0 - 1.2" },
+                "Cadência (passos/min)": { value: avgCadence.toFixed(2), typical: "110 - 120" },
+                "% Fase de Apoio (Estimado)": { value: "60.0", typical: "~60%" },
+                "% Fase de Balanço (Estimado)": { value: "40.0", typical: "~40%" },
+                "% Apoio Duplo (Estimado)": { value: ( (avgDoubleSupportTime / avgStrideTime) * 100).toFixed(1), typical: "~20%" },
+                "Comprimento do Passo (m)": { value: avgStepLength.toFixed(2), typical: "0.7 - 0.8" },
+                "Comprimento do Ciclo (m)": { value: avgStrideLength.toFixed(2), typical: "1.4 - 1.6" },
+                "Velocidade da Marcha (m/s)": { value: avgGaitSpeed.toFixed(2), typical: "1.2 - 1.4" }
+            };
+            displayResults(calculatedResults);
+            statusDiv.textContent = 'Análise concluída.';
+        }
+
+        function findValleys(data, minHeight, minDistance) {
+            const valleys = [];
+            for (let i = 1; i < data.length - 1; i++) {
+                if (data[i] < data[i-1] && data[i] < data[i+1] && data[i] < -minHeight) {
+                    if (valleys.length === 0 || (i - valleys[valleys.length - 1]) > minDistance) {
+                        valleys.push(i);
+                    }
+                }
+            }
+            return valleys;
+        }
+
+        function displayResults(results) {
+            resultsBody.innerHTML = '';
+            for (const key in results) {
+                const row = document.createElement('tr');
+                const isObject = typeof results[key] === 'object' && results[key] !== null;
+                const value = isObject ? results[key].value : results[key];
+                const typical = isObject ? results[key].typical : 'N/A';
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${key}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${value}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${typical}</td>
+                `;
+                resultsBody.appendChild(row);
+            }
+            resultsCard.classList.remove('hidden');
+            resultsTable.classList.remove('hidden');
+            noResultsP.classList.add('hidden');
+            exportCard.classList.remove('hidden');
+        }
+
+        // --- LÓGICA DE EXPORTAÇÃO ---
+        function getFilename(prefix) {
+            const id = personIdInput.value || 'sem_id';
+            const date = new Date().toISOString().slice(0, 10);
+            return `${prefix}_${id}_${date}`;
+        }
+
+        function downloadFile(filename, content, mimeType) {
+            const a = document.createElement('a');
+            const blob = new Blob([content], {type: mimeType});
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        exportRawCsvBtn.addEventListener('click', () => {
+            const headers = "timestamp,ax,ay,az,gx,gy,gz";
+            const csvContent = sensorData.map(row => 
+                `${row.timestamp.toFixed(0)},${row.ax.toFixed(4)},${row.ay.toFixed(4)},${row.az.toFixed(4)},${row.gx.toFixed(4)},${row.gy.toFixed(4)},${row.gz.toFixed(4)}`
+            ).join('\n');
+            const fullCsv = `${headers}\n${csvContent}`;
+            downloadFile(getFilename('dados_brutos') + '.csv', fullCsv, 'text/csv;charset=utf-8;');
+        });
+
+        exportResultsCsvBtn.addEventListener('click', () => {
+            const headers = "Parâmetro,Valor Médio,Valor Típico";
+            const csvContent = Object.entries(calculatedResults).map(([key, val]) => {
+                const isObject = typeof val === 'object' && val !== null;
+                const value = isObject ? val.value : val;
+                const typical = isObject ? val.typical : 'N/A';
+                return `"${key}",${value},"${typical}"`;
+            }).join('\n');
+            const fullCsv = `${headers}\n${csvContent}`;
+            downloadFile(getFilename('resultados_calculados') + '.csv', fullCsv, 'text/csv;charset=utf-8;');
+        });
+        
+        exportResultsJsonBtn.addEventListener('click', () => {
+            const jsonContent = JSON.stringify({
+                id: personIdInput.value,
+                height: heightInput.value,
+                date: new Date().toISOString(),
+                results: calculatedResults
+            }, null, 2);
+            downloadFile(getFilename('resultados_calculados') + '.json', jsonContent, 'application/json;charset=utf-8;');
+        });
+
+        exportResultsPdfBtn.addEventListener('click', () => {
+            const doc = new jsPDF();
+            doc.setFontSize(18);
+            doc.text("Relatório de Análise de Marcha", 14, 22);
+            doc.setFontSize(11);
+            doc.setTextColor(100);
+            doc.text(`ID da Pessoa: ${personIdInput.value}`, 14, 32);
+            doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 14, 38);
+
+            const tableData = Object.entries(calculatedResults).map(([key, val]) => {
+                const isObject = typeof val === 'object' && val !== null;
+                return [key, isObject ? val.value : val, isObject ? val.typical : 'N/A'];
+            });
+
+            doc.autoTable({
+                startY: 50,
+                head: [['Parâmetro', 'Valor Médio', 'Valor Típico (Adulto Saudável)']],
+                body: tableData,
+                theme: 'striped',
+                headStyles: { fillColor: [79, 70, 229] }, // Indigo color
+            });
+            doc.save(getFilename('resultados_calculados') + '.pdf');
+        });
+
+    </script>
+</body>
+</html>
