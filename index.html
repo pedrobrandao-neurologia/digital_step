@@ -6,7 +6,8 @@
     <title>O Passo Digital: Análise de Marcha</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Bibliotecas para exportação em PDF -->
+    <!-- Bibliotecas para exportação e gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
     <style>
@@ -55,6 +56,14 @@
             background-color: #d1d5db;
             cursor: not-allowed;
         }
+        .progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 4px;
+            background-color: rgba(255, 255, 255, 0.4);
+            transition: width 0.1s linear;
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -70,33 +79,27 @@
             <h2 class="text-2xl font-semibold mb-4 text-indigo-600">Instruções de Uso</h2>
             <ol class="list-decimal list-inside space-y-2 text-gray-700">
                 <li>
-                    <strong>Permissão:</strong> O navegador solicitará permissão para acessar os sensores de movimento. Por favor, aceite para continuar.
+                    <strong>Permissão e Calibração:</strong> Clique em <strong>"Calibrar Sensores"</strong>. Conceda a permissão de acesso aos sensores de movimento quando solicitado e mantenha o celular em uma superfície plana e estável.
                 </li>
                 <li>
-                    <strong>Posicionamento:</strong> Para melhores resultados, coloque o celular em um bolso frontal justo da calça ou use um cinto/suporte para fixá-lo firmemente na região da cintura ou parte inferior das costas.
-                </li>
-                <li>
-                    <strong>Calibração:</strong> Antes de iniciar, coloque o celular sobre uma superfície plana e estável (mesa) e pressione <strong>"Calibrar Sensores"</strong>. Aguarde a mensagem de confirmação.
-                </li>
-                <li>
-                    <strong>Dados do Usuário:</strong> Insira um ID para a pessoa testada e sua altura em metros (ex: 1.75). Estes dados são cruciais.
+                    <strong>Configuração:</strong> Insira um ID, sua altura, a duração da coleta e o eixo do acelerômetro a ser usado para a análise (Magnitude é o recomendado para uso no bolso).
                 </li>
                  <li>
-                    <strong>Coleta:</strong> Pressione <strong>"Iniciar Coleta"</strong> e caminhe em linha reta por pelo menos 20-30 segundos em um ritmo normal.
+                    <strong>Coleta:</strong> Coloque o celular no bolso, pressione <strong>"Iniciar Coleta"</strong> e caminhe em linha reta. A coleta parará automaticamente.
                 </li>
                 <li>
-                    <strong>Análise e Exportação:</strong> Pressione <strong>"Parar e Analisar"</strong>. Os resultados serão exibidos e as opções de exportação ficarão disponíveis.
+                    <strong>Análise:</strong> Após a coleta, os resultados e gráficos serão exibidos. Você pode exportá-los usando os botões na seção "Exportar Dados".
                 </li>
             </ol>
             <div class="mt-4 p-3 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md">
-                <p><strong>Aviso:</strong> Esta é uma ferramenta de demonstração tecnológica baseada em pesquisa e não deve ser usada para diagnóstico clínico.</p>
+                <p><strong>Aviso:</strong> Esta é uma ferramenta de demonstração tecnológica e não deve ser usada para diagnóstico clínico.</p>
             </div>
         </div>
 
         <!-- Seção de Controle -->
         <div class="card">
             <h2 class="text-2xl font-semibold mb-4 text-indigo-600">Painel de Controle</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                 <div>
                     <label for="personId" class="block text-sm font-medium text-gray-700 mb-1">ID da Pessoa Testada</label>
                     <input type="text" id="personId" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ex: Paciente01">
@@ -105,15 +108,33 @@
                     <label for="height" class="block text-sm font-medium text-gray-700 mb-1">Altura da Pessoa (metros)</label>
                     <input type="number" id="height" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ex: 1.75" step="0.01">
                 </div>
+                 <div>
+                    <label for="duration" class="block text-sm font-medium text-gray-700 mb-1">Duração da Coleta</label>
+                    <select id="duration" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="20">20 segundos</option>
+                        <option value="40">40 segundos</option>
+                        <option value="60">60 segundos</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="axis" class="block text-sm font-medium text-gray-700 mb-1">Eixo de Análise do Acelerômetro</label>
+                    <select id="axis" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="magnitude">Magnitude (Recomendado)</option>
+                        <option value="z">Eixo Z (Vertical)</option>
+                        <option value="y">Eixo Y (Transversal)</option>
+                        <option value="x">Eixo X (Anteroposterior)</option>
+                    </select>
+                </div>
             </div>
             <div class="flex flex-col md:flex-row gap-4 justify-around mt-6">
                 <button id="calibrateBtn" class="btn btn-secondary">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd" /></svg>
                     Calibrar Sensores
                 </button>
-                <button id="startBtn" class="btn btn-primary" disabled>
+                <button id="startBtn" class="btn btn-primary relative overflow-hidden" disabled>
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg>
-                    Iniciar Coleta
+                    <span id="startBtnText">Iniciar Coleta</span>
+                    <div id="progressBar" class="progress-bar" style="width: 0%;"></div>
                 </button>
                 <button id="stopBtn" class="btn btn-danger" disabled>
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd" /></svg>
@@ -123,12 +144,26 @@
             <div id="status" class="mt-4 text-center font-medium text-gray-600 h-6"></div>
         </div>
         
+        <!-- Seção de Gráficos -->
+        <div id="chartsCard" class="card hidden">
+            <h2 class="text-2xl font-semibold mb-4 text-indigo-600">Visualização dos Dados</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div>
+                    <h3 class="text-lg font-medium text-center mb-2">Sinal para Detecção de Passadas</h3>
+                    <canvas id="signalChart"></canvas>
+                </div>
+                <div>
+                     <h3 class="text-lg font-medium text-center mb-2">Trajetória 3D Estimada</h3>
+                    <canvas id="trajectoryChart"></canvas>
+                </div>
+            </div>
+        </div>
+
         <!-- Seção de Resultados -->
         <div id="resultsCard" class="card hidden">
             <h2 class="text-2xl font-semibold mb-4 text-indigo-600">Resultados da Análise de Marcha</h2>
             <div id="resultsContainer" class="overflow-x-auto">
-                <p id="noResults" class="text-gray-500">A análise será exibida aqui após a coleta dos dados.</p>
-                <table id="resultsTable" class="min-w-full divide-y divide-gray-200 hidden">
+                <table id="resultsTable" class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Parâmetro</th>
@@ -137,7 +172,6 @@
                         </tr>
                     </thead>
                     <tbody id="resultsBody" class="bg-white divide-y divide-gray-200">
-                        <!-- Linhas da tabela serão inseridas aqui via JavaScript -->
                     </tbody>
                 </table>
             </div>
@@ -161,14 +195,18 @@
         // --- Referências de Elementos ---
         const calibrateBtn = document.getElementById('calibrateBtn');
         const startBtn = document.getElementById('startBtn');
+        const startBtnText = document.getElementById('startBtnText');
+        const progressBar = document.getElementById('progressBar');
         const stopBtn = document.getElementById('stopBtn');
         const heightInput = document.getElementById('height');
         const personIdInput = document.getElementById('personId');
+        const durationSelect = document.getElementById('duration');
+        const axisSelect = document.getElementById('axis');
         const statusDiv = document.getElementById('status');
         
+        const chartsCard = document.getElementById('chartsCard');
         const resultsCard = document.getElementById('resultsCard');
         const resultsTable = document.getElementById('resultsTable');
-        const noResultsP = document.getElementById('noResults');
         const resultsBody = document.getElementById('resultsBody');
 
         const exportCard = document.getElementById('exportCard');
@@ -184,15 +222,16 @@
         let accelBias = { x: 0, y: 0, z: 0 };
         let gyroBias = { x: 0, y: 0, z: 0 };
         let dataCollectionHandler = null;
+        let collectionTimeout = null;
+        let progressInterval = null;
+        let signalChart, trajectoryChart;
         
         // --- Parâmetros de Análise ---
         const SAMPLING_FREQUENCY = 50; // Hz
-        const MIN_PEAK_HEIGHT = 4.0; // m/s^2, limiar para detectar um pico na magnitude da aceleração. Ajustado para uso no bolso.
-        const MIN_STEP_DURATION = 0.3; // segundos, distância mínima entre passadas
+        const MIN_PEAK_HEIGHT = 4.0; 
+        const MIN_STEP_DURATION = 0.3; 
 
         // --- LÓGICA DE CONTROLE E SENSORES ---
-        
-        // Função para solicitar permissão de sensor, necessária para iOS 13+
         async function requestSensorAccess() {
             if (typeof DeviceMotionEvent.requestPermission === 'function') {
                 try {
@@ -203,7 +242,6 @@
                     return false;
                 }
             }
-            // Para navegadores/dispositivos que não exigem permissão explícita
             return true;
         }
 
@@ -219,19 +257,14 @@
                 return;
             }
 
-            statusDiv.textContent = 'Calibrando... Mantenha o dispositivo parado em superfície plana.';
+            statusDiv.textContent = 'Calibrando... Mantenha o dispositivo parado.';
             const calibrationData = { accel: [], gyro: [] };
 
             const calibrationHandler = (event) => {
                 const acc = event.accelerationIncludingGravity;
                 const rot = event.rotationRate;
-                if (acc && acc.x !== null) {
-                    calibrationData.accel.push({ x: acc.x, y: acc.y, z: acc.z });
-                }
-                if (rot && rot.beta !== null) {
-                    // beta: x-axis, gamma: y-axis, alpha: z-axis
-                    calibrationData.gyro.push({ x: rot.beta, y: rot.gamma, z: rot.alpha });
-                }
+                if (acc && acc.x !== null) calibrationData.accel.push({ x: acc.x, y: acc.y, z: acc.z });
+                if (rot && rot.beta !== null) calibrationData.gyro.push({ x: rot.beta, y: rot.gamma, z: rot.alpha });
             };
 
             window.addEventListener('devicemotion', calibrationHandler, true);
@@ -250,7 +283,6 @@
                     y: acc.y + data.y / calibrationData.accel.length,
                     z: acc.z + data.z / calibrationData.accel.length,
                 }), { x: 0, y: 0, z: 0 });
-                // A componente Z do acelerômetro em repouso deve ser a gravidade
                 accelBias.z -= 9.81;
 
                 gyroBias = calibrationData.gyro.reduce((acc, data) => ({
@@ -262,28 +294,36 @@
                 statusDiv.textContent = `Calibração concluída!`;
                 calibrateBtn.disabled = false;
                 startBtn.disabled = false;
+                initCharts(); // Inicia os gráficos após a calibração
             }, 2000);
         });
 
         startBtn.addEventListener('click', () => {
-            if (!heightInput.value || parseFloat(heightInput.value) <= 0) {
-                statusDiv.textContent = 'Por favor, insira uma altura válida.';
-                return;
-            }
-            if (!personIdInput.value) {
-                statusDiv.textContent = 'Por favor, insira um ID para a pessoa.';
+            if (!heightInput.value || !personIdInput.value) {
+                statusDiv.textContent = 'Preencha o ID e a altura.';
                 return;
             }
 
             isCollecting = true;
             sensorData = [];
-            startBtn.disabled = true; stopBtn.disabled = false;
-            calibrateBtn.disabled = true; heightInput.disabled = true; personIdInput.disabled = true;
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            [calibrateBtn, heightInput, personIdInput, durationSelect, axisSelect].forEach(el => el.disabled = true);
             
-            statusDiv.textContent = 'Coletando dados... Caminhe agora.';
+            chartsCard.classList.add('hidden');
             resultsCard.classList.add('hidden');
             exportCard.classList.add('hidden');
             
+            const duration = parseInt(durationSelect.value) * 1000;
+            let startTime = performance.now();
+
+            progressInterval = setInterval(() => {
+                const elapsed = performance.now() - startTime;
+                const progress = Math.min(100, (elapsed / duration) * 100);
+                progressBar.style.width = `${progress}%`;
+                statusDiv.textContent = `Coletando... Faltam ${( (duration - elapsed) / 1000).toFixed(1)}s`;
+            }, 100);
+
             dataCollectionHandler = (event) => {
                 if (!isCollecting) return;
                 const acc = event.accelerationIncludingGravity;
@@ -291,103 +331,124 @@
                 if (acc && acc.x !== null && rot && rot.beta !== null) {
                     sensorData.push({
                         timestamp: performance.now(),
-                        ax: acc.x - accelBias.x,
-                        ay: acc.y - accelBias.y,
-                        az: acc.z - accelBias.z,
-                        gx: rot.beta - gyroBias.x,
-                        gy: rot.gamma - gyroBias.y,
-                        gz: rot.alpha - gyroBias.z,
+                        ax: acc.x, ay: acc.y, az: acc.z,
+                        gx: rot.beta, gy: rot.gamma, gz: rot.alpha,
                     });
                 }
             };
             window.addEventListener('devicemotion', dataCollectionHandler, true);
+
+            collectionTimeout = setTimeout(() => {
+                if(isCollecting) stopBtn.click();
+            }, duration);
         });
         
         stopBtn.addEventListener('click', () => {
             stopCollection();
             statusDiv.textContent = 'Coleta parada. Analisando dados...';
-            analyzeGaitData();
+            // Adiciona um pequeno delay para a UI atualizar antes da análise pesada
+            setTimeout(analyzeGaitData, 100);
         });
         
         function stopCollection() {
             isCollecting = false;
+            clearTimeout(collectionTimeout);
+            clearInterval(progressInterval);
+            progressBar.style.width = '0%';
+            
             if (dataCollectionHandler) {
                 window.removeEventListener('devicemotion', dataCollectionHandler, true);
                 dataCollectionHandler = null;
             }
             
-            startBtn.disabled = false; stopBtn.disabled = true;
-            calibrateBtn.disabled = false; heightInput.disabled = false; personIdInput.disabled = false;
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+             [calibrateBtn, heightInput, personIdInput, durationSelect, axisSelect].forEach(el => el.disabled = false);
         }
 
         // --- LÓGICA DE ANÁLISE DE DADOS ---
         function analyzeGaitData() {
             if (sensorData.length < SAMPLING_FREQUENCY * 5) {
-                statusDiv.textContent = 'Dados insuficientes para análise. Caminhe por mais tempo.';
+                statusDiv.textContent = 'Dados insuficientes para análise.';
                 return;
             }
 
-            // Usar a magnitude do vetor de aceleração é mais robusto para a posição no bolso,
-            // pois é menos sensível à orientação do dispositivo.
-            const accelMag = sensorData.map(d => Math.sqrt(d.ax**2 + d.ay**2 + d.az**2));
+            // Calibra os dados brutos
+            const calibratedData = sensorData.map(d => ({
+                timestamp: d.timestamp,
+                ax: d.ax - accelBias.x, ay: d.ay - accelBias.y, az: d.az - accelBias.z,
+                gx: d.gx - gyroBias.x, gy: d.gy - gyroBias.y, gz: d.gz - gyroBias.z,
+            }));
+
+            const analysisAxis = axisSelect.value;
+            let analysisSignal;
+
+            switch (analysisAxis) {
+                case 'x': analysisSignal = calibratedData.map(d => d.ax); break;
+                case 'y': analysisSignal = calibratedData.map(d => d.ay); break;
+                case 'z': analysisSignal = calibratedData.map(d => d.az); break;
+                default: // magnitude
+                    analysisSignal = calibratedData.map(d => Math.sqrt(d.ax**2 + d.ay**2 + d.az**2));
+            }
             
-            // Aplica um filtro passa-baixa simples para suavizar o sinal e remover ruído.
             const alpha = 0.2;
-            const filteredAccelMag = [accelMag[0]];
-            for (let i = 1; i < accelMag.length; i++) {
-                filteredAccelMag.push(alpha * accelMag[i] + (1 - alpha) * filteredAccelMag[i - 1]);
+            const filteredSignal = [analysisSignal[0]];
+            for (let i = 1; i < analysisSignal.length; i++) {
+                filteredSignal.push(alpha * analysisSignal[i] + (1 - alpha) * filteredSignal[i - 1]);
             }
 
-            // Em vez de procurar vales na aceleração vertical, procuramos picos na magnitude.
-            // Estes picos representam o impacto do calcanhar (Heel Strike).
-            const hsIndices = findPeaks(filteredAccelMag, MIN_PEAK_HEIGHT, Math.round(MIN_STEP_DURATION * SAMPLING_FREQUENCY));
+            const hsIndices = findPeaks(filteredSignal, MIN_PEAK_HEIGHT, Math.round(MIN_STEP_DURATION * SAMPLING_FREQUENCY));
 
             if (hsIndices.length < 3) {
-                statusDiv.textContent = 'Não foi possível detectar passadas suficientes. Verifique o posicionamento do celular ou caminhe de forma mais ritmada.';
+                statusDiv.textContent = 'Não foram detectadas passadas suficientes.';
                 return;
             }
+
             const strideTimes = [];
             for (let i = 0; i < hsIndices.length - 1; i++) {
-                strideTimes.push((sensorData[hsIndices[i+1]].timestamp - sensorData[hsIndices[i]].timestamp) / 1000);
+                strideTimes.push((calibratedData[hsIndices[i+1]].timestamp - calibratedData[hsIndices[i]].timestamp) / 1000);
             }
+            
             const avgStrideTime = strideTimes.reduce((a, b) => a + b, 0) / strideTimes.length;
             const avgCadence = 120 / avgStrideTime;
-            const avgStanceTime = avgStrideTime * 0.60;
-            const avgSwingTime = avgStrideTime * 0.40;
-            const avgDoubleSupportTime = avgStanceTime - avgSwingTime;
             const height = parseFloat(heightInput.value);
             const cadenceHz = avgCadence / 60.0;
 
-            // O modelo de regressão para o comprimento do passo ainda usa a variância da aceleração vertical (az).
-            const meanAz = sensorData.map(d => d.az).reduce((a, b) => a + b, 0) / sensorData.length;
-            const varianceAz = sensorData.map(d => d.az).reduce((acc, val) => acc + Math.pow(val - meanAz, 2), 0) / sensorData.length;
+            const meanAz = calibratedData.map(d => d.az).reduce((a, b) => a + b, 0) / calibratedData.length;
+            const varianceAz = calibratedData.map(d => d.az).reduce((acc, val) => acc + Math.pow(val - meanAz, 2), 0) / calibratedData.length;
             const A = 0.5, B = 0.05, C = 0.01, D = -0.25;
             const avgStepLength = A * height + B * cadenceHz + C * varianceAz + D;
             const avgStrideLength = avgStepLength * 2;
             const avgGaitSpeed = avgStrideLength / avgStrideTime;
 
+            const positionData = calculateTrajectory(calibratedData, hsIndices);
+
             calculatedResults = {
-                "Duração da Coleta (s)": ((sensorData[sensorData.length - 1].timestamp - sensorData[0].timestamp) / 1000).toFixed(2),
+                "Duração da Coleta (s)": ((calibratedData[calibratedData.length - 1].timestamp - calibratedData[0].timestamp) / 1000).toFixed(2),
                 "Número de Passadas (Ciclos) Detectadas": strideTimes.length,
                 "Tempo do Ciclo (s)": { value: avgStrideTime.toFixed(2), typical: "1.0 - 1.2" },
                 "Cadência (passos/min)": { value: avgCadence.toFixed(2), typical: "110 - 120" },
-                "% Fase de Apoio (Estimado)": { value: "60.0", typical: "~60%" },
-                "% Fase de Balanço (Estimado)": { value: "40.0", typical: "~40%" },
-                "% Apoio Duplo (Estimado)": { value: ( (avgDoubleSupportTime / avgStrideTime) * 100).toFixed(1), typical: "~20%" },
                 "Comprimento do Passo (m)": { value: avgStepLength.toFixed(2), typical: "0.7 - 0.8" },
                 "Comprimento do Ciclo (m)": { value: avgStrideLength.toFixed(2), typical: "1.4 - 1.6" },
                 "Velocidade da Marcha (m/s)": { value: avgGaitSpeed.toFixed(2), typical: "1.2 - 1.4" }
             };
+
+            // Adiciona dados de posição ao sensorData para exportação
+            positionData.forEach((pos, i) => {
+                sensorData[i].posX = pos.x;
+                sensorData[i].posY = pos.y;
+                sensorData[i].posZ = pos.z;
+            });
+            
             displayResults(calculatedResults);
+            updateCharts(filteredSignal, positionData, calibratedData.map(d => (d.timestamp - calibratedData[0].timestamp)/1000));
             statusDiv.textContent = 'Análise concluída.';
         }
-
+        
         function findPeaks(data, minHeight, minDistance) {
             const peaks = [];
             for (let i = 1; i < data.length - 1; i++) {
-                // Um pico é um ponto mais alto que seus vizinhos imediatos e acima do limiar
                 if (data[i] > data[i-1] && data[i] > data[i+1] && data[i] > minHeight) {
-                    // Garante que o pico está suficientemente distante do último pico detectado
                     if (peaks.length === 0 || (i - peaks[peaks.length - 1]) > minDistance) {
                         peaks.push(i);
                     }
@@ -395,6 +456,53 @@
             }
             return peaks;
         }
+
+        function calculateTrajectory(data, stepIndices) {
+            let velocity = { x: 0, y: 0, z: 0 };
+            let position = { x: 0, y: 0, z: 0 };
+            const positionData = [{t: 0, ...position}];
+            const gravity = { x: 0, y: 0, z: 0 };
+            const alpha = 0.8; // Fator de filtro para gravidade
+            let lastTimestamp = data[0].timestamp;
+
+            for (let i = 1; i < data.length; i++) {
+                const dt = (data[i].timestamp - lastTimestamp) / 1000;
+                if (dt <= 0) continue;
+
+                // Estima e remove a gravidade
+                gravity.x = alpha * gravity.x + (1 - alpha) * data[i].ax;
+                gravity.y = alpha * gravity.y + (1 - alpha) * data[i].ay;
+                gravity.z = alpha * gravity.z + (1 - alpha) * data[i].az;
+
+                const linearAccel = {
+                    x: data[i].ax - gravity.x,
+                    y: data[i].ay - gravity.y,
+                    z: data[i].az - gravity.z,
+                };
+                
+                // Integração para obter velocidade
+                velocity.x += linearAccel.x * dt;
+                velocity.y += linearAccel.y * dt;
+                velocity.z += linearAccel.z * dt;
+
+                // ZUPT (Zero-Velocity Update): Reseta a velocidade nos passos para corrigir a deriva
+                if (stepIndices.includes(i)) {
+                    velocity.x *= 0.1; // Amortecimento em vez de reset total
+                    velocity.y *= 0.1;
+                    velocity.z *= 0.1;
+                }
+                
+                // Integração para obter posição
+                position.x += velocity.x * dt;
+                position.y += velocity.y * dt;
+                position.z += velocity.z * dt;
+
+                positionData.push({ t: (data[i].timestamp - data[0].timestamp) / 1000, ...position });
+                lastTimestamp = data[i].timestamp;
+            }
+            return positionData;
+        }
+
 
         function displayResults(results) {
             resultsBody.innerHTML = '';
@@ -411,10 +519,60 @@
                 resultsBody.appendChild(row);
             }
             resultsCard.classList.remove('hidden');
-            resultsTable.classList.remove('hidden');
-            noResultsP.classList.add('hidden');
             exportCard.classList.remove('hidden');
         }
+
+        // --- GRÁFICOS ---
+        function initCharts() {
+             const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { ticks: { color: '#6b7280' }, grid: { color: 'rgba(0,0,0,0.05)' } },
+                    y: { ticks: { color: '#6b7280' }, grid: { color: 'rgba(0,0,0,0.1)' } }
+                },
+                elements: { point: { radius: 0 }, line: { tension: 0.1, borderWidth: 1.5 } }
+            };
+
+            if (signalChart) signalChart.destroy();
+            signalChart = new Chart(document.getElementById('signalChart'), {
+                type: 'line',
+                data: { labels: [], datasets: [{ data: [], borderColor: '#4f46e5' }] },
+                options: { ...commonOptions, plugins: { ...commonOptions.plugins, legend: { display: false } } }
+            });
+
+            if (trajectoryChart) trajectoryChart.destroy();
+            trajectoryChart = new Chart(document.getElementById('trajectoryChart'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        { label: 'X', data: [], borderColor: '#dc2626' },
+                        { label: 'Y', data: [], borderColor: '#2563eb' },
+                        { label: 'Z', data: [], borderColor: '#16a34a' },
+                    ]
+                },
+                options: { ...commonOptions, plugins: { ...commonOptions.plugins, legend: { display: true, position: 'top' } } }
+            });
+        }
+        
+        function updateCharts(signalData, positionData, timestamps) {
+            chartsCard.classList.remove('hidden');
+
+            // Sinal
+            signalChart.data.labels = timestamps;
+            signalChart.data.datasets[0].data = signalData;
+            signalChart.update('none');
+
+            // Trajetória
+            trajectoryChart.data.labels = timestamps;
+            trajectoryChart.data.datasets[0].data = positionData.map(p => p.x);
+            trajectoryChart.data.datasets[1].data = positionData.map(p => p.y);
+            trajectoryChart.data.datasets[2].data = positionData.map(p => p.z);
+            trajectoryChart.update('none');
+        }
+
 
         // --- LÓGICA DE EXPORTAÇÃO ---
         function getFilename(prefix) {
@@ -434,20 +592,24 @@
         }
 
         exportRawCsvBtn.addEventListener('click', () => {
-            const headers = "timestamp,ax,ay,az,gx,gy,gz";
+            const headers = "timestamp,ax,ay,az,gx,gy,gz,posX,posY,posZ";
             const csvContent = sensorData.map(row => 
-                `${row.timestamp.toFixed(0)},${row.ax.toFixed(4)},${row.ay.toFixed(4)},${row.az.toFixed(4)},${row.gx.toFixed(4)},${row.gy.toFixed(4)},${row.gz.toFixed(4)}`
+                [
+                    row.timestamp.toFixed(0),
+                    row.ax.toFixed(4), row.ay.toFixed(4), row.az.toFixed(4),
+                    row.gx.toFixed(4), row.gy.toFixed(4), row.gz.toFixed(4),
+                    (row.posX || 0).toFixed(4), (row.posY || 0).toFixed(4), (row.posZ || 0).toFixed(4)
+                ].join(',')
             ).join('\n');
             const fullCsv = `${headers}\n${csvContent}`;
-            downloadFile(getFilename('dados_brutos') + '.csv', fullCsv, 'text/csv;charset=utf-8;');
+            downloadFile(getFilename('dados_brutos_completos') + '.csv', fullCsv, 'text/csv;charset=utf-8;');
         });
 
         exportResultsCsvBtn.addEventListener('click', () => {
             const headers = "Parâmetro,Valor Médio,Valor Típico";
             const csvContent = Object.entries(calculatedResults).map(([key, val]) => {
-                const isObject = typeof val === 'object' && val !== null;
-                const value = isObject ? val.value : val;
-                const typical = isObject ? val.typical : 'N/A';
+                const value = typeof val === 'object' ? val.value : val;
+                const typical = typeof val === 'object' ? val.typical : 'N/A';
                 return `"${key}",${value},"${typical}"`;
             }).join('\n');
             const fullCsv = `${headers}\n${csvContent}`;
@@ -474,8 +636,9 @@
             doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 14, 38);
 
             const tableData = Object.entries(calculatedResults).map(([key, val]) => {
-                const isObject = typeof val === 'object' && val !== null;
-                return [key, isObject ? val.value : val, isObject ? val.typical : 'N/A'];
+                const value = typeof val === 'object' ? val.value : val;
+                const typical = typeof val === 'object' ? val.typical : 'N/A';
+                return [key, value, typical];
             });
 
             doc.autoTable({
@@ -483,7 +646,7 @@
                 head: [['Parâmetro', 'Valor Médio', 'Valor Típico (Adulto Saudável)']],
                 body: tableData,
                 theme: 'striped',
-                headStyles: { fillColor: [79, 70, 229] }, // Indigo color
+                headStyles: { fillColor: [79, 70, 229] },
             });
             doc.save(getFilename('resultados_calculados') + '.pdf');
         });
