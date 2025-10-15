@@ -82,7 +82,7 @@
                     <strong>Permissão e Calibração:</strong> Clique em <strong>"Calibrar Sensores"</strong>. Conceda a permissão de acesso aos sensores de movimento quando solicitado e mantenha o celular em uma superfície plana e estável.
                 </li>
                 <li>
-                    <strong>Configuração:</strong> Insira um ID, sua altura, a duração da coleta e o eixo do acelerômetro a ser usado para a análise (Magnitude é o recomendado para uso no bolso).
+                    <strong>Configuração:</strong> Insira um ID, sua altura em centímetros, a duração da coleta e o eixo do acelerômetro a ser usado para a análise (Magnitude é o recomendado para uso no bolso).
                 </li>
                  <li>
                     <strong>Coleta:</strong> Coloque o celular no bolso, pressione <strong>"Iniciar Coleta"</strong> e caminhe em linha reta. A coleta parará automaticamente.
@@ -105,8 +105,8 @@
                     <input type="text" id="personId" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ex: Paciente01">
                 </div>
                 <div>
-                    <label for="height" class="block text-sm font-medium text-gray-700 mb-1">Altura da Pessoa (metros)</label>
-                    <input type="number" id="height" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ex: 1.75" step="0.01">
+                    <label for="height" class="block text-sm font-medium text-gray-700 mb-1">Altura da Pessoa (cm)</label>
+                    <input type="number" id="height" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ex: 175">
                 </div>
                  <div>
                     <label for="duration" class="block text-sm font-medium text-gray-700 mb-1">Duração da Coleta</label>
@@ -195,20 +195,17 @@
         // --- Referências de Elementos ---
         const calibrateBtn = document.getElementById('calibrateBtn');
         const startBtn = document.getElementById('startBtn');
-        const startBtnText = document.getElementById('startBtnText');
-        const progressBar = document.getElementById('progressBar');
         const stopBtn = document.getElementById('stopBtn');
         const heightInput = document.getElementById('height');
         const personIdInput = document.getElementById('personId');
         const durationSelect = document.getElementById('duration');
         const axisSelect = document.getElementById('axis');
         const statusDiv = document.getElementById('status');
+        const progressBar = document.getElementById('progressBar');
         
         const chartsCard = document.getElementById('chartsCard');
         const resultsCard = document.getElementById('resultsCard');
-        const resultsTable = document.getElementById('resultsTable');
         const resultsBody = document.getElementById('resultsBody');
-
         const exportCard = document.getElementById('exportCard');
         const exportRawCsvBtn = document.getElementById('exportRawCsvBtn');
         const exportResultsCsvBtn = document.getElementById('exportResultsCsvBtn');
@@ -230,6 +227,12 @@
         const SAMPLING_FREQUENCY = 50; // Hz
         const MIN_PEAK_HEIGHT = 4.0; 
         const MIN_STEP_DURATION = 0.3; 
+
+        // --- FUNÇÕES UTILITÁRIAS ---
+        function formatNumberPT(num) {
+            if (typeof num !== 'string') num = String(num);
+            return num.replace('.', ',');
+        }
 
         // --- LÓGICA DE CONTROLE E SENSORES ---
         async function requestSensorAccess() {
@@ -259,7 +262,6 @@
 
             statusDiv.textContent = 'Calibrando... Mantenha o dispositivo parado.';
             const calibrationData = { accel: [], gyro: [] };
-
             const calibrationHandler = (event) => {
                 const acc = event.accelerationIncludingGravity;
                 const rot = event.rotationRate;
@@ -271,7 +273,6 @@
 
             setTimeout(() => {
                 window.removeEventListener('devicemotion', calibrationHandler, true);
-
                 if (calibrationData.accel.length < 10) {
                     statusDiv.textContent = 'Não foi possível ler os sensores. Mova o dispositivo e tente novamente.';
                     calibrateBtn.disabled = false;
@@ -294,13 +295,13 @@
                 statusDiv.textContent = `Calibração concluída!`;
                 calibrateBtn.disabled = false;
                 startBtn.disabled = false;
-                initCharts(); // Inicia os gráficos após a calibração
+                initCharts();
             }, 2000);
         });
 
         startBtn.addEventListener('click', () => {
-            if (!heightInput.value || !personIdInput.value) {
-                statusDiv.textContent = 'Preencha o ID e a altura.';
+            if (!heightInput.value || parseFloat(heightInput.value) <= 50) {
+                 statusDiv.textContent = 'Preencha o ID e uma altura válida (em cm).';
                 return;
             }
 
@@ -310,9 +311,7 @@
             stopBtn.disabled = false;
             [calibrateBtn, heightInput, personIdInput, durationSelect, axisSelect].forEach(el => el.disabled = true);
             
-            chartsCard.classList.add('hidden');
-            resultsCard.classList.add('hidden');
-            exportCard.classList.add('hidden');
+            [chartsCard, resultsCard, exportCard].forEach(el => el.classList.add('hidden'));
             
             const duration = parseInt(durationSelect.value) * 1000;
             let startTime = performance.now();
@@ -346,7 +345,6 @@
         stopBtn.addEventListener('click', () => {
             stopCollection();
             statusDiv.textContent = 'Coleta parada. Analisando dados...';
-            // Adiciona um pequeno delay para a UI atualizar antes da análise pesada
             setTimeout(analyzeGaitData, 100);
         });
         
@@ -355,11 +353,7 @@
             clearTimeout(collectionTimeout);
             clearInterval(progressInterval);
             progressBar.style.width = '0%';
-            
-            if (dataCollectionHandler) {
-                window.removeEventListener('devicemotion', dataCollectionHandler, true);
-                dataCollectionHandler = null;
-            }
+            if (dataCollectionHandler) window.removeEventListener('devicemotion', dataCollectionHandler, true);
             
             startBtn.disabled = false;
             stopBtn.disabled = true;
@@ -373,7 +367,6 @@
                 return;
             }
 
-            // Calibra os dados brutos
             const calibratedData = sensorData.map(d => ({
                 timestamp: d.timestamp,
                 ax: d.ax - accelBias.x, ay: d.ay - accelBias.y, az: d.az - accelBias.z,
@@ -382,13 +375,11 @@
 
             const analysisAxis = axisSelect.value;
             let analysisSignal;
-
             switch (analysisAxis) {
                 case 'x': analysisSignal = calibratedData.map(d => d.ax); break;
                 case 'y': analysisSignal = calibratedData.map(d => d.ay); break;
                 case 'z': analysisSignal = calibratedData.map(d => d.az); break;
-                default: // magnitude
-                    analysisSignal = calibratedData.map(d => Math.sqrt(d.ax**2 + d.ay**2 + d.az**2));
+                default: analysisSignal = calibratedData.map(d => Math.sqrt(d.ax**2 + d.ay**2 + d.az**2));
             }
             
             const alpha = 0.2;
@@ -411,37 +402,32 @@
             
             const avgStrideTime = strideTimes.reduce((a, b) => a + b, 0) / strideTimes.length;
             const avgCadence = 120 / avgStrideTime;
-            const height = parseFloat(heightInput.value);
+            const heightInMeters = parseFloat(heightInput.value) / 100;
             const cadenceHz = avgCadence / 60.0;
-
             const meanAz = calibratedData.map(d => d.az).reduce((a, b) => a + b, 0) / calibratedData.length;
             const varianceAz = calibratedData.map(d => d.az).reduce((acc, val) => acc + Math.pow(val - meanAz, 2), 0) / calibratedData.length;
             const A = 0.5, B = 0.05, C = 0.01, D = -0.25;
-            const avgStepLength = A * height + B * cadenceHz + C * varianceAz + D;
+            const avgStepLength = A * heightInMeters + B * cadenceHz + C * varianceAz + D;
             const avgStrideLength = avgStepLength * 2;
             const avgGaitSpeed = avgStrideLength / avgStrideTime;
-
             const positionData = calculateTrajectory(calibratedData, hsIndices);
 
             calculatedResults = {
-                "Duração da Coleta (s)": ((calibratedData[calibratedData.length - 1].timestamp - calibratedData[0].timestamp) / 1000).toFixed(2),
-                "Número de Passadas (Ciclos) Detectadas": strideTimes.length,
-                "Tempo do Ciclo (s)": { value: avgStrideTime.toFixed(2), typical: "1.0 - 1.2" },
+                "Duração da Coleta (s)": { value: ((calibratedData[calibratedData.length - 1].timestamp - calibratedData[0].timestamp) / 1000).toFixed(2) },
+                "Número de Passadas Detectadas": { value: strideTimes.length },
+                "Tempo do Ciclo (s)": { value: avgStrideTime.toFixed(2), typical: "1,0 - 1,2" },
                 "Cadência (passos/min)": { value: avgCadence.toFixed(2), typical: "110 - 120" },
-                "Comprimento do Passo (m)": { value: avgStepLength.toFixed(2), typical: "0.7 - 0.8" },
-                "Comprimento do Ciclo (m)": { value: avgStrideLength.toFixed(2), typical: "1.4 - 1.6" },
-                "Velocidade da Marcha (m/s)": { value: avgGaitSpeed.toFixed(2), typical: "1.2 - 1.4" }
+                "Comprimento do Passo (m)": { value: avgStepLength.toFixed(2), typical: "0,7 - 0,8" },
+                "Comprimento do Ciclo (m)": { value: avgStrideLength.toFixed(2), typical: "1,4 - 1,6" },
+                "Velocidade da Marcha (m/s)": { value: avgGaitSpeed.toFixed(2), typical: "1,2 - 1,4" }
             };
 
-            // Adiciona dados de posição ao sensorData para exportação
             positionData.forEach((pos, i) => {
-                sensorData[i].posX = pos.x;
-                sensorData[i].posY = pos.y;
-                sensorData[i].posZ = pos.z;
+                sensorData[i].posX = pos.x; sensorData[i].posY = pos.y; sensorData[i].posZ = pos.z;
             });
             
             displayResults(calculatedResults);
-            updateCharts(filteredSignal, positionData, calibratedData.map(d => (d.timestamp - calibratedData[0].timestamp)/1000));
+            updateCharts(filteredSignal, hsIndices, positionData, calibratedData.map(d => (d.timestamp - calibratedData[0].timestamp)/1000));
             statusDiv.textContent = 'Análise concluída.';
         }
         
@@ -462,37 +448,27 @@
             let position = { x: 0, y: 0, z: 0 };
             const positionData = [{t: 0, ...position}];
             const gravity = { x: 0, y: 0, z: 0 };
-            const alpha = 0.8; // Fator de filtro para gravidade
+            const alpha = 0.8;
             let lastTimestamp = data[0].timestamp;
 
             for (let i = 1; i < data.length; i++) {
                 const dt = (data[i].timestamp - lastTimestamp) / 1000;
                 if (dt <= 0) continue;
 
-                // Estima e remove a gravidade
                 gravity.x = alpha * gravity.x + (1 - alpha) * data[i].ax;
                 gravity.y = alpha * gravity.y + (1 - alpha) * data[i].ay;
                 gravity.z = alpha * gravity.z + (1 - alpha) * data[i].az;
 
-                const linearAccel = {
-                    x: data[i].ax - gravity.x,
-                    y: data[i].ay - gravity.y,
-                    z: data[i].az - gravity.z,
-                };
+                const linearAccel = { x: data[i].ax - gravity.x, y: data[i].ay - gravity.y, z: data[i].az - gravity.z };
                 
-                // Integração para obter velocidade
                 velocity.x += linearAccel.x * dt;
                 velocity.y += linearAccel.y * dt;
                 velocity.z += linearAccel.z * dt;
 
-                // ZUPT (Zero-Velocity Update): Reseta a velocidade nos passos para corrigir a deriva
                 if (stepIndices.includes(i)) {
-                    velocity.x *= 0.1; // Amortecimento em vez de reset total
-                    velocity.y *= 0.1;
-                    velocity.z *= 0.1;
+                    velocity.x *= 0.1; velocity.y *= 0.1; velocity.z *= 0.1;
                 }
                 
-                // Integração para obter posição
                 position.x += velocity.x * dt;
                 position.y += velocity.y * dt;
                 position.z += velocity.z * dt;
@@ -503,14 +479,12 @@
             return positionData;
         }
 
-
         function displayResults(results) {
             resultsBody.innerHTML = '';
             for (const key in results) {
                 const row = document.createElement('tr');
-                const isObject = typeof results[key] === 'object' && results[key] !== null;
-                const value = isObject ? results[key].value : results[key];
-                const typical = isObject ? results[key].typical : 'N/A';
+                const value = formatNumberPT(results[key].value);
+                const typical = results[key].typical || 'N/A';
                 row.innerHTML = `
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${key}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${value}</td>
@@ -527,9 +501,17 @@
              const commonOptions = {
                 responsive: true,
                 maintainAspectRatio: true,
-                plugins: { legend: { display: false } },
                 scales: {
-                    x: { ticks: { color: '#6b7280' }, grid: { color: 'rgba(0,0,0,0.05)' } },
+                    x: { 
+                        ticks: { 
+                            color: '#6b7280',
+                            callback: function(value, index, values) {
+                                const label = this.getLabelForValue(value);
+                                return Number.isInteger(parseFloat(label)) ? Math.round(label) : null;
+                            }
+                        }, 
+                        grid: { color: 'rgba(0,0,0,0.05)' } 
+                    },
                     y: { ticks: { color: '#6b7280' }, grid: { color: 'rgba(0,0,0,0.1)' } }
                 },
                 elements: { point: { radius: 0 }, line: { tension: 0.1, borderWidth: 1.5 } }
@@ -538,8 +520,8 @@
             if (signalChart) signalChart.destroy();
             signalChart = new Chart(document.getElementById('signalChart'), {
                 type: 'line',
-                data: { labels: [], datasets: [{ data: [], borderColor: '#4f46e5' }] },
-                options: { ...commonOptions, plugins: { ...commonOptions.plugins, legend: { display: false } } }
+                data: { labels: [], datasets: [] },
+                options: { ...commonOptions, plugins: { legend: { display: false } } }
             });
 
             if (trajectoryChart) trajectoryChart.destroy();
@@ -553,19 +535,30 @@
                         { label: 'Z', data: [], borderColor: '#16a34a' },
                     ]
                 },
-                options: { ...commonOptions, plugins: { ...commonOptions.plugins, legend: { display: true, position: 'top' } } }
+                options: { ...commonOptions, plugins: { legend: { display: true, position: 'top' } } }
             });
         }
         
-        function updateCharts(signalData, positionData, timestamps) {
+        function updateCharts(signalData, hsIndices, positionData, timestamps) {
             chartsCard.classList.remove('hidden');
 
-            // Sinal
+            const peakMarkers = {
+                type: 'scatter',
+                label: 'Passadas Detectadas',
+                data: timestamps.map((t, i) => hsIndices.includes(i) ? {x: t, y: signalData[i]} : null),
+                pointStyle: 'star',
+                backgroundColor: 'rgba(220, 38, 38, 1)',
+                borderColor: 'rgba(220, 38, 38, 1)',
+                radius: 8,
+            };
+
             signalChart.data.labels = timestamps;
-            signalChart.data.datasets[0].data = signalData;
+            signalChart.data.datasets = [
+                { data: signalData, borderColor: '#4f46e5', label: 'Sinal' },
+                peakMarkers
+            ];
             signalChart.update('none');
 
-            // Trajetória
             trajectoryChart.data.labels = timestamps;
             trajectoryChart.data.datasets[0].data = positionData.map(p => p.x);
             trajectoryChart.data.datasets[1].data = positionData.map(p => p.y);
@@ -596,24 +589,24 @@
             const csvContent = sensorData.map(row => 
                 [
                     row.timestamp.toFixed(0),
-                    row.ax.toFixed(4), row.ay.toFixed(4), row.az.toFixed(4),
-                    row.gx.toFixed(4), row.gy.toFixed(4), row.gz.toFixed(4),
-                    (row.posX || 0).toFixed(4), (row.posY || 0).toFixed(4), (row.posZ || 0).toFixed(4)
-                ].join(',')
+                    formatNumberPT(row.ax.toFixed(4)), formatNumberPT(row.ay.toFixed(4)), formatNumberPT(row.az.toFixed(4)),
+                    formatNumberPT(row.gx.toFixed(4)), formatNumberPT(row.gy.toFixed(4)), formatNumberPT(row.gz.toFixed(4)),
+                    formatNumberPT((row.posX || 0).toFixed(4)), formatNumberPT((row.posY || 0).toFixed(4)), formatNumberPT((row.posZ || 0).toFixed(4))
+                ].join(';')
             ).join('\n');
             const fullCsv = `${headers}\n${csvContent}`;
-            downloadFile(getFilename('dados_brutos_completos') + '.csv', fullCsv, 'text/csv;charset=utf-8;');
+            downloadFile(getFilename('dados_brutos_completos') + '.csv', 'data:text/csv;charset=utf-8,' + encodeURIComponent(fullCsv));
         });
 
         exportResultsCsvBtn.addEventListener('click', () => {
-            const headers = "Parâmetro,Valor Médio,Valor Típico";
+            const headers = "Parâmetro;Valor Médio;Valor Típico";
             const csvContent = Object.entries(calculatedResults).map(([key, val]) => {
-                const value = typeof val === 'object' ? val.value : val;
-                const typical = typeof val === 'object' ? val.typical : 'N/A';
-                return `"${key}",${value},"${typical}"`;
+                const value = formatNumberPT(val.value);
+                const typical = val.typical || 'N/A';
+                return `"${key}";${value};"${typical}"`;
             }).join('\n');
             const fullCsv = `${headers}\n${csvContent}`;
-            downloadFile(getFilename('resultados_calculados') + '.csv', fullCsv, 'text/csv;charset=utf-8;');
+            downloadFile(getFilename('resultados_calculados') + '.csv', 'data:text/csv;charset=utf-8,' + encodeURIComponent(fullCsv));
         });
         
         exportResultsJsonBtn.addEventListener('click', () => {
@@ -628,27 +621,62 @@
 
         exportResultsPdfBtn.addEventListener('click', () => {
             const doc = new jsPDF();
+            let currentY = 22;
+
             doc.setFontSize(18);
-            doc.text("Relatório de Análise de Marcha", 14, 22);
+            doc.text("Relatório de Análise de Marcha - O Passo Digital", 14, currentY);
+            currentY += 10;
             doc.setFontSize(11);
             doc.setTextColor(100);
-            doc.text(`ID da Pessoa: ${personIdInput.value}`, 14, 32);
-            doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 14, 38);
-
-            const tableData = Object.entries(calculatedResults).map(([key, val]) => {
-                const value = typeof val === 'object' ? val.value : val;
-                const typical = typeof val === 'object' ? val.typical : 'N/A';
-                return [key, value, typical];
-            });
+            doc.text(`ID da Pessoa: ${personIdInput.value}`, 14, currentY);
+            doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 140, currentY);
+            currentY += 10;
 
             doc.autoTable({
-                startY: 50,
-                head: [['Parâmetro', 'Valor Médio', 'Valor Típico (Adulto Saudável)']],
-                body: tableData,
+                startY: currentY,
+                head: [['Parâmetro', 'Valor Médio', 'Valor Típico']],
+                body: Object.entries(calculatedResults).map(([key, val]) => [key, formatNumberPT(val.value), val.typical || 'N/A']),
                 theme: 'striped',
                 headStyles: { fillColor: [79, 70, 229] },
+                didDrawPage: (data) => { currentY = data.cursor.y; }
             });
-            doc.save(getFilename('resultados_calculados') + '.pdf');
+            currentY += 10;
+            
+            doc.setFontSize(12).setFont(undefined, 'bold').text("Metodologia, Fórmulas e Limitações", 14, currentY);
+            currentY += 6;
+
+            const addSection = (title, content) => {
+                 if (currentY > 260) {
+                    doc.addPage();
+                    currentY = 20;
+                }
+                doc.setFontSize(10).setFont(undefined, 'bold').text(title, 14, currentY);
+                currentY += 5;
+                doc.setFontSize(9).setFont(undefined, 'normal');
+                const splitText = doc.splitTextToSize(content, 180);
+                doc.text(splitText, 14, currentY);
+                currentY += (splitText.length * 4) + 5;
+            };
+
+            addSection("Coleta de Dados",
+                "O aplicativo utiliza os sensores inerciais do smartphone (acelerômetro e giroscópio) para coletar dados de movimento durante a caminhada. Os dados são calibrados para remover o bias intrínseco dos sensores."
+            );
+            addSection("Detecção de Passadas e Trajetória",
+                "A detecção de passadas é feita identificando picos no sinal do acelerômetro (usando a magnitude ou um eixo específico). A trajetória 3D é estimada pela dupla integração da aceleração linear, com um algoritmo de correção de deriva (ZUPT - Zero-Velocity Update) aplicado em cada passada para minimizar erros cumulativos."
+            );
+            addSection("Fórmulas Principais",
+                "Cadência (passos/min) = 120 / Tempo Médio do Ciclo (s)\n" +
+                "Velocidade (m/s) = Comprimento do Ciclo (m) / Tempo do Ciclo (s)\n" +
+                "Comprimento do Passo (m) é estimado por um modelo de regressão validado: SL = A·H + B·f + C·var + D, onde H é a altura, f é a cadência e 'var' é a variância da aceleração vertical."
+            );
+            addSection("Referências", 
+                "Os algoritmos e modelos de cálculo são baseados em metodologias validadas na literatura científica de análise de marcha por sensores inerciais, conforme detalhado na pesquisa 'O Passo Digital: Uma Análise Abrangente da Avaliação da Marcha Humana'."
+            );
+            addSection("Limitações",
+                "A precisão depende da fixação do dispositivo (movimento excessivo no bolso pode gerar ruído). A estimativa de trajetória é uma aproximação e está sujeita a erros de deriva. Os cálculos são otimizados para caminhada em linha reta. Este aplicativo é uma ferramenta para fins educacionais e de pesquisa, não devendo ser utilizado para diagnóstico clínico."
+            );
+            
+            doc.save(getFilename('relatorio_marcha') + '.pdf');
         });
 
     </script>
