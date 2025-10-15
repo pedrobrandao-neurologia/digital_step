@@ -187,7 +187,7 @@
         
         // --- Parâmetros de Análise ---
         const SAMPLING_FREQUENCY = 50; // Hz
-        const MIN_PEAK_HEIGHT = 1.5; // m/s^2, limiar para detectar um pico de passada
+        const MIN_PEAK_HEIGHT = 4.0; // m/s^2, limiar para detectar um pico na magnitude da aceleração. Ajustado para uso no bolso.
         const MIN_STEP_DURATION = 0.3; // segundos, distância mínima entre passadas
 
         // --- LÓGICA DE CONTROLE E SENSORES ---
@@ -326,15 +326,24 @@
                 statusDiv.textContent = 'Dados insuficientes para análise. Caminhe por mais tempo.';
                 return;
             }
-            const alpha = 0.2; // Fator de suavização
-            const filteredAz = [sensorData[0].az];
-            for (let i = 1; i < sensorData.length; i++) {
-                filteredAz.push(alpha * sensorData[i].az + (1 - alpha) * filteredAz[i - 1]);
+
+            // Usar a magnitude do vetor de aceleração é mais robusto para a posição no bolso,
+            // pois é menos sensível à orientação do dispositivo.
+            const accelMag = sensorData.map(d => Math.sqrt(d.ax**2 + d.ay**2 + d.az**2));
+            
+            // Aplica um filtro passa-baixa simples para suavizar o sinal e remover ruído.
+            const alpha = 0.2;
+            const filteredAccelMag = [accelMag[0]];
+            for (let i = 1; i < accelMag.length; i++) {
+                filteredAccelMag.push(alpha * accelMag[i] + (1 - alpha) * filteredAccelMag[i - 1]);
             }
-            const hsIndices = findValleys(filteredAz, MIN_PEAK_HEIGHT, Math.round(MIN_STEP_DURATION * SAMPLING_FREQUENCY));
+
+            // Em vez de procurar vales na aceleração vertical, procuramos picos na magnitude.
+            // Estes picos representam o impacto do calcanhar (Heel Strike).
+            const hsIndices = findPeaks(filteredAccelMag, MIN_PEAK_HEIGHT, Math.round(MIN_STEP_DURATION * SAMPLING_FREQUENCY));
 
             if (hsIndices.length < 3) {
-                statusDiv.textContent = 'Não foi possível detectar passadas suficientes. Tente novamente.';
+                statusDiv.textContent = 'Não foi possível detectar passadas suficientes. Verifique o posicionamento do celular ou caminhe de forma mais ritmada.';
                 return;
             }
             const strideTimes = [];
@@ -348,8 +357,10 @@
             const avgDoubleSupportTime = avgStanceTime - avgSwingTime;
             const height = parseFloat(heightInput.value);
             const cadenceHz = avgCadence / 60.0;
-            const meanAz = filteredAz.reduce((a, b) => a + b, 0) / filteredAz.length;
-            const varianceAz = filteredAz.reduce((acc, val) => acc + Math.pow(val - meanAz, 2), 0) / filteredAz.length;
+
+            // O modelo de regressão para o comprimento do passo ainda usa a variância da aceleração vertical (az).
+            const meanAz = sensorData.map(d => d.az).reduce((a, b) => a + b, 0) / sensorData.length;
+            const varianceAz = sensorData.map(d => d.az).reduce((acc, val) => acc + Math.pow(val - meanAz, 2), 0) / sensorData.length;
             const A = 0.5, B = 0.05, C = 0.01, D = -0.25;
             const avgStepLength = A * height + B * cadenceHz + C * varianceAz + D;
             const avgStrideLength = avgStepLength * 2;
@@ -371,16 +382,18 @@
             statusDiv.textContent = 'Análise concluída.';
         }
 
-        function findValleys(data, minHeight, minDistance) {
-            const valleys = [];
+        function findPeaks(data, minHeight, minDistance) {
+            const peaks = [];
             for (let i = 1; i < data.length - 1; i++) {
-                if (data[i] < data[i-1] && data[i] < data[i+1] && data[i] < -minHeight) {
-                    if (valleys.length === 0 || (i - valleys[valleys.length - 1]) > minDistance) {
-                        valleys.push(i);
+                // Um pico é um ponto mais alto que seus vizinhos imediatos e acima do limiar
+                if (data[i] > data[i-1] && data[i] > data[i+1] && data[i] > minHeight) {
+                    // Garante que o pico está suficientemente distante do último pico detectado
+                    if (peaks.length === 0 || (i - peaks[peaks.length - 1]) > minDistance) {
+                        peaks.push(i);
                     }
                 }
             }
-            return valleys;
+            return peaks;
         }
 
         function displayResults(results) {
